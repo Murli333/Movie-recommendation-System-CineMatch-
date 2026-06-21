@@ -49,6 +49,7 @@ def load_data():
     ).drop_duplicates().to_dict()
 
     return movies, similarity, movies_indices
+movies, similarity, movies_indices = load_data()
 
 # CUSTOM CSS — cinema marquee identity
 
