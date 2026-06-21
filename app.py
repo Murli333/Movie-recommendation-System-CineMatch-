@@ -729,11 +729,11 @@ st.markdown("""
         <div class="credits-eyebrow">Directed &amp; built by</div>
         <div class="credits-name">MURLI MISHRA</div>
         <div class="credits-links">
-            <a class="credit-pill" href="tel:+919305693867">
-                <i class="ti ti-phone" aria-hidden="true"></i> +91 93056 93867
+            <a class="credit-pill" href="https://github.com/Murli333" target="_blank">
+                GitHub
             </a>
-            <a class="credit-pill" href="mailto:mishramurli76@gmail.com">
-                <i class="ti ti-mail" aria-hidden="true"></i> mishramurli76@gmail.com
+            <a class="credit-pill" href="https://www.linkedin.com/in/murli-mishra-ab0705332/" target="_blank">
+                LinkedIn
             </a>
         </div>
         <div class="credits-tagline">CineMatch — end of reel</div>
