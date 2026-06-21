@@ -2,6 +2,37 @@ import streamlit as st
 import pickle
 import pandas as pd
 from recommend import recommend, fetch_movie_details, get_api_key
+import ast
+
+def convert(text):
+    L = []
+    for i in ast.literal_eval(text):
+        L.append(i['name'])
+    return L
+
+def convert_cast(text):
+    L = []
+    c = 0
+
+    for i in ast.literal_eval(text):
+        if c != 3:
+            L.append(i['name'])
+            c += 1
+        else:
+            break
+
+    return L
+
+def fetch_director(text):
+
+    if pd.isna(text):
+        return []
+
+    for i in ast.literal_eval(text):
+        if i['job'] == 'Director':
+            return [i['name']]
+
+    return []
 
 # PAGE CONFIG
 st.set_page_config(
