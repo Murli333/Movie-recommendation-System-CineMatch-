@@ -13,14 +13,42 @@ st.set_page_config(
 
 # LOAD DATA
 
-@st.cache_resource
+@st.cache_data
 def load_data():
-    movies = pickle.load(open("movies.pkl", "rb"))
-    similarity = pickle.load(open("similarity.pkl", "rb"))
-    movies_indices = pd.Series(movies.index, index=movies['title']).to_dict()
-    return movies, similarity, movies_indices
 
-movies, similarity, movies_indices = load_data()
+    movies = pd.read_csv("tmdb_5000_movies.csv")
+    credits = pd.read_csv("tmdb_5000_credits.csv")
+
+    movies = movies.merge(credits, on="title")
+
+    # preprocessing
+    movies["overview"] = movies["overview"].fillna("")
+
+    movies["genres"] = movies["genres"].apply(convert)
+    movies["keywords"] = movies["keywords"].apply(convert)
+    movies["cast"] = movies["cast"].apply(convert_cast)
+    movies["director"] = movies["crew"].apply(fetch_director)
+
+    movies["tags2"] = (
+        movies["genres"].apply(lambda x: " ".join(x))
+        + " "
+        + movies["keywords"].apply(lambda x: " ".join(x))
+        + " "
+        + movies["overview"]
+    )
+
+    tf = TfidfVectorizer(max_features=5000, stop_words="english")
+
+    v1 = tf.fit_transform(movies["tags2"])
+
+    similarity = cosine_similarity(v1)
+
+    movies_indices = pd.Series(
+        movies.index,
+        index=movies["title"]
+    ).drop_duplicates().to_dict()
+
+    return movies, similarity, movies_indices
 
 # CUSTOM CSS — cinema marquee identity
 
