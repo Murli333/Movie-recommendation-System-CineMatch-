@@ -3,6 +3,8 @@ import pickle
 import pandas as pd
 from recommend import recommend, fetch_movie_details, get_api_key
 import ast
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 def convert(text):
     L = []
