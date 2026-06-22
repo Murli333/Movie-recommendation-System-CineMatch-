@@ -851,7 +851,7 @@ st.markdown("""
     <div class="hero-wrap">
         <div class="hero-eyebrow">Now showing</div>
         <div class="hero-title">CINE<span>MATCH</span></div>
-        <div class="hero-subtitle">// find your next favorite movie, instantly</div>
+        <div class="hero-subtitle">find your next favorite movie, instantly</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -884,7 +884,7 @@ with tab_recommend:
     ))
 
     st.markdown('<div class="search-console">', unsafe_allow_html=True)
-    st.markdown('<div class="search-console-label">// Search the reel</div>', unsafe_allow_html=True)
+    st.markdown('<div class="search-console-label">▸ Search the reel</div>', unsafe_allow_html=True)
 
     mode = st.radio(
         "How do you want to search?",
@@ -1098,7 +1098,7 @@ with tab_model:
     with col_left:
         st.markdown("""
             <div class="info-panel">
-                <h4>// similarity score distribution</h4>
+                <h4>▸ Similarity score distribution</h4>
                 <p>This is computed live from the actual TF-IDF cosine similarity
                 matrix the engine uses — a sample of pairwise scores across the
                 catalog, not a demo number.</p>
@@ -1120,7 +1120,7 @@ with tab_model:
     with col_right:
         st.markdown("""
             <div class="info-panel">
-                <h4>// demo confusion breakdown</h4>
+                <h4>▸ Demo confusion breakdown</h4>
                 <p>A mock breakdown of recommendation outcomes on a hypothetical
                 100-recommendation sample, for illustration only.</p>
             </div>
@@ -1134,7 +1134,7 @@ with tab_model:
 
         st.markdown("""
             <div class="info-panel" style="margin-top:14px;">
-                <h4>// how scoring works</h4>
+                <h4>▸ How scoring works</h4>
                 <p><b>Content-based filtering:</b> each movie's genres, keywords,
                 and overview are combined into a single tag string, vectorized with
                 <b>TF-IDF</b>, then compared pairwise using <b>cosine similarity</b>.
@@ -1236,7 +1236,7 @@ with tab_about:
     with a1:
         st.markdown("""
             <div class="info-panel">
-                <h4>// what this is</h4>
+                <h4>▸ What this is</h4>
                 <p><b>CineMatch</b> is a content-based movie recommender. Tell it a
                 movie you like, a genre, or both, and it finds titles with the
                 closest thematic fingerprint — without needing any of your
@@ -1244,7 +1244,7 @@ with tab_about:
             </div>
 
             <div class="info-panel">
-                <h4>// how a recommendation is made</h4>
+                <h4>▸ How a recommendation is made</h4>
                 <ul class="pipeline-steps">
                     <li class="pipeline-step">
                         <span class="pipeline-num">1</span>
@@ -1273,7 +1273,7 @@ with tab_about:
     with a2:
         st.markdown("""
             <div class="info-panel">
-                <h4>// data &amp; tech</h4>
+                <h4>▸ Data &amp; tech</h4>
                 <p>Built on the TMDB 5000 movie &amp; credits dataset, with live
                 poster/overview lookups from the TMDB API.</p>
                 <div class="badge-row">
@@ -1288,7 +1288,7 @@ with tab_about:
             </div>
 
             <div class="info-panel">
-                <h4>// good to know</h4>
+                <h4>▸ Good to know</h4>
                 <p>This is a <b>content-based</b> system, not collaborative
                 filtering — it doesn't learn from what other users liked, so
                 recommendations stay consistent and explainable, but it won't
