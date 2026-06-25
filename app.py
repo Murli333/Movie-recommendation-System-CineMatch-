@@ -7,35 +7,39 @@ import ast
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+def safe_literal_eval(text):
+    """ast.literal_eval, but never raises — malformed/missing JSON-ish
+    strings just become an empty list instead of crashing data loading."""
+    if pd.isna(text):
+        return []
+    try:
+        return ast.literal_eval(text)
+    except (ValueError, SyntaxError):
+        return []
+
 def convert(text):
-    L = []
-    for i in ast.literal_eval(text):
-        L.append(i['name'])
-    return L
+    return [i['name'] for i in safe_literal_eval(text)]
 
 def convert_cast(text):
     L = []
-    c = 0
-
-    for i in ast.literal_eval(text):
-        if c != 3:
-            L.append(i['name'])
-            c += 1
-        else:
+    for i in safe_literal_eval(text):
+        if len(L) == 3:
             break
-
+        L.append(i['name'])
     return L
 
 def fetch_director(text):
-
-    if pd.isna(text):
-        return []
-
-    for i in ast.literal_eval(text):
-        if i['job'] == 'Director':
+    for i in safe_literal_eval(text):
+        if i.get('job') == 'Director':
             return [i['name']]
-
     return []
+
+def collapse(name):
+    """'Robert Downey Jr.' -> 'RobertDowneyJr.' so the vectorizer treats a
+    person's full name as one token instead of splitting on first/last
+    name (which would falsely link unrelated movies sharing a common
+    first name like 'James')."""
+    return str(name).replace(" ", "")
 
 # PAGE CONFIG
 st.set_page_config(
@@ -50,23 +54,48 @@ st.set_page_config(
 @st.cache_data
 def load_data():
 
-    movies = pd.read_csv("tmdb_5000_movies.csv")
-    credits = pd.read_csv("tmdb_5000_credits.csv")
+    try:
+        movies = pd.read_csv("tmdb_5000_movies.csv")
+        credits = pd.read_csv("tmdb_5000_credits.csv")
+    except FileNotFoundError as e:
+        st.error(
+            f"Couldn't find a required data file ({e.filename}). "
+            "Make sure tmdb_5000_movies.csv and tmdb_5000_credits.csv "
+            "are in the same folder as app.py."
+        )
+        st.stop()
 
     movies = movies.merge(credits, on="title")
 
+    # A handful of titles in this dataset repeat (e.g. re-releases). Keeping
+    # duplicates breaks the title -> row-index lookup used everywhere else
+    # (the second occurrence would silently overwrite the first), so we
+    # de-dupe right after the merge, before anything else touches the index.
+    movies = movies.drop_duplicates(subset="title", keep="first").reset_index(drop=True)
+
     # preprocessing
     movies["overview"] = movies["overview"].fillna("")
+    movies["vote_average"] = pd.to_numeric(movies.get("vote_average"), errors="coerce").fillna(0)
+    movies["vote_count"] = pd.to_numeric(movies.get("vote_count"), errors="coerce").fillna(0)
 
     movies["genres"] = movies["genres"].apply(convert)
     movies["keywords"] = movies["keywords"].apply(convert)
     movies["cast"] = movies["cast"].apply(convert_cast)
     movies["director"] = movies["crew"].apply(fetch_director)
 
+    # Tag string used for similarity. Genres/keywords/cast/director are
+    # collapsed to single tokens (see collapse()) so e.g. "Tom Hanks" isn't
+    # diluted into the generic words "tom" and "hanks" by TF-IDF — cast and
+    # director carry real recommendation signal now instead of being
+    # computed and thrown away.
     movies["tags2"] = (
-        movies["genres"].apply(lambda x: " ".join(x))
+        movies["genres"].apply(lambda x: " ".join(collapse(g) for g in x))
         + " "
-        + movies["keywords"].apply(lambda x: " ".join(x))
+        + movies["keywords"].apply(lambda x: " ".join(collapse(k) for k in x))
+        + " "
+        + movies["cast"].apply(lambda x: " ".join(collapse(c) for c in x))
+        + " "
+        + movies["director"].apply(lambda x: " ".join(collapse(d) for d in x))
         + " "
         + movies["overview"]
     )
@@ -80,7 +109,7 @@ def load_data():
     movies_indices = pd.Series(
         movies.index,
         index=movies["title"]
-    ).drop_duplicates().to_dict()
+    ).to_dict()
 
     return movies, similarity, movies_indices
 movies, similarity, movies_indices = load_data()
@@ -259,8 +288,17 @@ st.markdown("""
     .stTabs [data-baseweb="tab-highlight"] { background: transparent; }
     .stTabs [data-baseweb="tab-border"] { display: none; }
 
-    /* ---------------- CENTERED SEARCH CONSOLE ---------------- */
-    .search-console {
+    /* ---------------- CENTERED SEARCH CONSOLE ----------------
+       Targets the Streamlit-generated wrapper for st.container(key=
+       "search_console") rather than a hand-written <div>. Streamlit
+       renders each st.markdown/st.radio/st.button call as its own
+       sibling node — an opening "<div>" in one markdown call and a
+       closing "</div>" in another never actually nest the widgets in
+       between, so the box rendered empty and the controls fell outside
+       it. st.container(key=...) is a real, single DOM element that the
+       controls are genuinely children of, so this same styling now
+       wraps real content. */
+    .st-key-search_console {
         max-width: 760px;
         margin: 0 auto 30px auto;
         background: var(--surface);
@@ -270,7 +308,7 @@ st.markdown("""
         box-shadow: 0 20px 50px rgba(0,0,0,0.35);
         position: relative;
     }
-    .search-console::before {
+    .st-key-search_console::before {
         content: '';
         position: absolute;
         top: -1px; left: 50%;
@@ -290,18 +328,18 @@ st.markdown("""
     }
 
     /* center the radio pills */
-    .search-console div[role="radiogroup"] {
+    .st-key-search_console div[role="radiogroup"] {
         justify-content: center;
         gap: 8px;
     }
-    .search-console div[role="radiogroup"] label {
+    .st-key-search_console div[role="radiogroup"] label {
         background: var(--surface-raised);
         border: 1px solid var(--hairline);
         border-radius: 20px;
         padding: 7px 16px !important;
         transition: all 0.2s ease;
     }
-    .search-console div[role="radiogroup"] label:hover {
+    .st-key-search_console div[role="radiogroup"] label:hover {
         border-color: var(--marquee-red);
     }
 
@@ -883,43 +921,47 @@ with tab_recommend:
         for genre in (genres if isinstance(genres, list) else [])
     ))
 
-    st.markdown('<div class="search-console">', unsafe_allow_html=True)
-    st.markdown('<div class="search-console-label">▸ Search the reel</div>', unsafe_allow_html=True)
+    # st.container(key=...) is a real DOM element, unlike the previous
+    # st.markdown('<div>') ... st.markdown('</div>') pattern — so every
+    # widget created inside this `with` block is a genuine child of the
+    # styled box (see ".st-key-search_console" in the CSS above) instead
+    # of rendering as an empty box with the controls orphaned outside it.
+    with st.container(key="search_console"):
+        st.markdown('<div class="search-console-label">▸ Search the reel</div>', unsafe_allow_html=True)
 
-    mode = st.radio(
-        "How do you want to search?",
-        ["By movie", "By genre", "Movie + genre"],
-        label_visibility="collapsed",
-        horizontal=True,
-        key="search_mode"
-    )
+        mode = st.radio(
+            "How do you want to search?",
+            ["By movie", "By genre", "Movie + genre"],
+            label_visibility="collapsed",
+            horizontal=True,
+            key="search_mode"
+        )
 
-    movie_input = None
-    genre_input = None
+        movie_input = None
+        genre_input = None
 
-    if mode == "By movie":
-        movie_input = st.selectbox("Pick a movie you like", movies['title'].values, key="movie_only")
+        if mode == "By movie":
+            movie_input = st.selectbox("Pick a movie you like", movies['title'].values, key="movie_only")
 
-    elif mode == "By genre":
-        genre_input = st.selectbox("Pick a genre", all_genres, key="genre_only")
+        elif mode == "By genre":
+            genre_input = st.selectbox("Pick a genre", all_genres, key="genre_only")
 
-    elif mode == "Movie + genre":
-        c1, c2 = st.columns(2)
-        with c1:
-            movie_input = st.selectbox("Pick a movie you like", movies['title'].values, key="movie_combo")
-        with c2:
-            genre_choice = st.selectbox("Narrow down by genre", ["All"] + all_genres, key="genre_combo")
-            genre_input = None if genre_choice == "All" else genre_choice
+        elif mode == "Movie + genre":
+            c1, c2 = st.columns(2)
+            with c1:
+                movie_input = st.selectbox("Pick a movie you like", movies['title'].values, key="movie_combo")
+            with c2:
+                genre_choice = st.selectbox("Narrow down by genre", ["All"] + all_genres, key="genre_combo")
+                genre_input = None if genre_choice == "All" else genre_choice
 
-    run_search = st.button("🎟️  Recommend", use_container_width=True)
+        run_search = st.button("🎟️  Recommend", use_container_width=True)
 
-    st.markdown(
-        '<div style="text-align:center; margin-top:10px; font-size:11.5px; color:var(--cream-dim); font-family:\'JetBrains Mono\',monospace;">'
-        'Posters powered by TMDB · typos in movie titles are auto-corrected'
-        '</div>',
-        unsafe_allow_html=True
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="text-align:center; margin-top:10px; font-size:11.5px; color:var(--cream-dim); font-family:\'JetBrains Mono\',monospace;">'
+            'Posters powered by TMDB · typos in movie titles are auto-corrected'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
 
     def render_skeleton_grid(n=10):
@@ -1136,10 +1178,11 @@ with tab_model:
             <div class="info-panel" style="margin-top:14px;">
                 <h4>▸ How scoring works</h4>
                 <p><b>Content-based filtering:</b> each movie's genres, keywords,
-                and overview are combined into a single tag string, vectorized with
-                <b>TF-IDF</b>, then compared pairwise using <b>cosine similarity</b>.
-                No user behavior data is required — this is why coverage is high
-                even for less-watched titles.</p>
+                cast, and director are combined into a single tag string along
+                with the overview, vectorized with <b>TF-IDF</b>, then compared
+                pairwise using <b>cosine similarity</b>. No user behavior data is
+                required — this is why coverage is high even for less-watched
+                titles.</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -1248,8 +1291,9 @@ with tab_about:
                 <ul class="pipeline-steps">
                     <li class="pipeline-step">
                         <span class="pipeline-num">1</span>
-                        <span><b>Tag building</b> — each movie's genres, keywords, and
-                        overview are merged into one descriptive tag string.</span>
+                        <span><b>Tag building</b> — each movie's genres, keywords,
+                        top-billed cast, and director are merged with the overview
+                        into one descriptive tag string.</span>
                     </li>
                     <li class="pipeline-step">
                         <span class="pipeline-num">2</span>
